@@ -33,3 +33,56 @@ def basic_descriptive(my_df):
     logger.info('# features: {0}'.format(n_col))
     logger.info('Features: {0}'.format(cols))
     return
+
+
+def last_n_to_int(my_str, n):
+    """
+    Extract the last n characters of a string and convert them to int.
+    Args:
+        my_str (str): origin of the characters to be extracted
+        n (int): amount of characters to be extracted.
+
+    Returns:
+        np.nan: if my_str is null.
+        int: characters extracted.
+
+    Raises:
+        ValueError if las n digits are not digits.
+    """
+    if pd.isnull(my_str):
+        return np.nan
+    else:
+        output = my_str[-n:]
+        if output.isdigit():
+            return int(my_str[-n:])
+        else:
+            raise ValueError('Last n digits are not digits: {0}'.format(my_str))
+
+
+def extract_last_n_from_df(my_df, columns, n):
+    """
+    Replace the columns in {columns} with their las {n} characters converted to int.
+    Args:
+        my_df (pd.DataFrame): target DataFrame. Columns will be extracted from it.
+        columns (list): contains target column names.
+        n (int): number of characters to be extracted.
+
+    Returns:
+        pd.DataFrame: target columns have been replace with the last two characters
+            of each observation converted to int.
+    """
+    my_df = my_df.copy()
+    for column in columns:
+        target = my_df.pop(column)
+        target.replace('Cero', '00', inplace=True)
+        my_df[column] = target.apply(lambda x: last_n_to_int(x, n))
+    return my_df
+
+
+def str_variables_with_int():
+    """
+    Columns with observations which last two characters are digits. We will extract these.
+    Returns:
+        list: containing the column names.
+    """
+    return ['RANG_INGRESO', 'RANG_SDO_PASIVO_MENOS0', 'RANG_NRO_PRODUCTOS_MENOS0']

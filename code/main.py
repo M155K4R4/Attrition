@@ -23,9 +23,23 @@ def main():
     work_data.basic_descriptive(main_client)
     work_data.basic_descriptive(main_reque)
     print(main_client.head().to_string())
-    print(main_reque.head().to_string())
 
-    print(main_client['ATTRITION'].value_counts())
+    check_var = 'ATTRITION'
+    print(main_client[check_var].value_counts())
+
+    str_variables = work_data.str_variables_with_int()
+    for i in str_variables:
+        print(main_client[i].value_counts())
+
+    main_client = work_data.extract_last_n_from_df(main_client, str_variables, 2)
+
+    print(main_client.head().to_string())
+    print(main_reque.head().to_string())
+    print(main_client.info())
+    print(main_client.describe().transpose().to_string())
+
+    config.time_taken_display(t0)
+
     #TODO Unbalanced classification problem
 
     # Brain storm for preprocessing:
@@ -49,8 +63,6 @@ def main():
     # 8. Voting Classifier - soft (for the best 3?)
 
     # All the algorithms must be implemented with a 10-fold CV and a GridSearch.
-
-    config.time_taken_display(t0)
 
 
 if __name__ == '__main__':
