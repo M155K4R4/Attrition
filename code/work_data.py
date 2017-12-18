@@ -83,6 +83,15 @@ def str_variables_with_int():
     """
     Columns with observations which last two characters are digits. We will extract these.
     Returns:
-        list: containing the column names.
+        list: contains the column names.
     """
     return ['RANG_INGRESO', 'RANG_SDO_PASIVO_MENOS0', 'RANG_NRO_PRODUCTOS_MENOS0']
+
+
+def id_variables():
+    """
+    Columns used as identificators.
+    Returns:
+        list: contains the column names.
+    """
+    return ['ID_CORRELATIVO', 'CODMES']

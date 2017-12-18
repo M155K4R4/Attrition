@@ -24,8 +24,9 @@ def main():
     work_data.basic_descriptive(main_reque)
     print(main_client.head().to_string())
 
-    check_var = 'ATTRITION'
+    check_var = 'CODMES'
     print(main_client[check_var].value_counts())
+    #hi
 
     str_variables = work_data.str_variables_with_int()
     for i in str_variables:
@@ -50,6 +51,10 @@ def main():
     # 5. 2-month window average.
     # 6. Discretize continuous variables. Especially those with many zeros.
 
+    # There are some missing values. We must try the following:
+    # 1. Keep only obs with complete information.
+    # 2. Input values to missing obs.
+
     # Fist, create the classification algorithm, then implement the preprocessing alternatives
 
     # Brain storm for classification:
@@ -59,10 +64,11 @@ def main():
     # 4. SMOTE
     # 5. Boosting for unbalanced classes.
     # 6. Logit lasso/ridge
-    # 7. NN -> problem optimizing
+    # 7. NN -> problem optimizing, I don't have enough computational power.
     # 8. Voting Classifier - soft (for the best 3?)
 
     # All the algorithms must be implemented with a 10-fold CV and a GridSearch.
+    # Report accuracy and auc
 
 
 if __name__ == '__main__':
