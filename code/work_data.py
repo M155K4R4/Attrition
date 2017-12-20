@@ -79,6 +79,22 @@ def extract_last_n_from_df(my_df, columns, n):
     return my_df
 
 
+def remove_columns(my_df, columns):
+    """
+    Remove columns from my_df.
+    Args:
+        my_df (pd.DataFrame): dataframe which columns will be removed.
+        columns (list): contains the  names of the columns to be removed.
+
+    Returns:
+        pd.DataFrame: dataframe with the columns removed.
+    """
+    my_df = my_df.copy()
+    for column in columns:
+        my_df.pop(column)
+    return my_df
+
+
 def str_variables_with_int():
     """
     Columns with observations which last two characters are digits. We will extract these.
