@@ -6,6 +6,7 @@ import config
 import work_data
 import models
 
+
 def main():
     logger = config.config_logger(__name__, 10)
     t0 = time.time()
@@ -22,22 +23,40 @@ def main():
 
     work_data.basic_descriptive(main_client)
     work_data.basic_descriptive(main_reque)
-    print(main_client.head().to_string())
+    #print(main_client.head().to_string())
 
-    check_var = 'CODMES'
-    print(main_client[check_var].value_counts())
-    #hi
+    #check_var = 'CODMES'
+    #print(main_client[check_var].value_counts())
 
     str_variables = work_data.str_variables_with_int()
-    for i in str_variables:
-        print(main_client[i].value_counts())
+    id_variables = work_data.id_variables()
 
     main_client = work_data.extract_last_n_from_df(main_client, str_variables, 2)
+    main_client = pd.get_dummies(main_client, drop_first=True)
+    main_client = main_client.dropna()
+    main_client = work_data.remove_columns(main_client, id_variables)
 
-    print(main_client.head().to_string())
-    print(main_reque.head().to_string())
-    print(main_client.info())
-    print(main_client.describe().transpose().to_string())
+    #print(main_client.head().to_string())
+    #print(main_reque.head().to_string())
+    #print(main_client.info())
+    #print(main_client.describe().transpose().to_string())
+
+    y = main_client.pop('ATTRITION')
+    x = main_client
+
+    x_train, x_test, y_train, y_test = models.split_data(x, y)
+    work_data.basic_descriptive(x_train)
+
+    gbm_model = models.gbm_grid(x_train, y_train)
+    print(gbm_model.score(x_test, y_test))
+
+    #logit_model = models.logit_grid(x_train, y_train)
+    #print(logit_model.score(x_test, y_test))
+
+    #ada_model = models.adaboost_grid(x_train, y_train)
+    #print(ada_model.score(x_test, y_test))
+
+
 
     config.time_taken_display(t0)
 
@@ -52,18 +71,18 @@ def main():
     # 6. Discretize continuous variables. Especially those with many zeros.
 
     # There are some missing values. We must try the following:
-    # 1. Keep only obs with complete information.
-    # 2. Input values to missing obs.
+    # YES 1. Keep only obs with complete information.
+    # NO 2. Input values to missing obs.
 
     # Fist, create the classification algorithm, then implement the preprocessing alternatives
 
     # Brain storm for classification:
-    # 1. GBM
+    # *1. GBM
     # 2. XGBoost
-    # 3. Adaboost
+    # *3. Adaboost
     # 4. SMOTE
     # 5. Boosting for unbalanced classes.
-    # 6. Logit lasso/ridge
+    # *6. Logit lasso/ridge
     # 7. NN -> problem optimizing, I don't have enough computational power.
     # 8. Voting Classifier - soft (for the best 3?)
 
