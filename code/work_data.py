@@ -1,21 +1,10 @@
 import numpy as np
 import pandas as pd
+import fancyimpute
 
 import config
 
 logger = config.config_logger(__name__, 10)
-
-
-def load_csv_to_df(path):
-    """
-    Open a CSV file with headers and a pd.DataFrame.
-    Args:
-        path (str): path to the CSV file.
-
-    Returns:
-        pd.DataFrame: CSV opened.
-    """
-    return pd.read_csv(path, header=0)
 
 
 def basic_descriptive(my_df):
@@ -93,6 +82,21 @@ def remove_columns(my_df, columns):
     for column in columns:
         my_df.pop(column)
     return my_df
+
+
+def preprocess_client(my_df):
+    str_variables = str_variables_with_int()
+    output = extract_last_n_from_df(my_df, str_variables, 2)
+    output = pd.get_dummies(output, drop_first=True)
+    #output = output.dropna(axis=1)
+    output.set_index('ID_CORRELATIVO', inplace=True)
+    return output
+
+def preprocess_client_test(my_df):
+    str_variables = str_variables_with_int()
+    output = extract_last_n_from_df(my_df, str_variables, 2)
+    output = pd.get_dummies(output, drop_first=True)
+    return output
 
 
 def str_variables_with_int():
