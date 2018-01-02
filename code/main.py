@@ -21,11 +21,15 @@ def main():
     test_client_path = './data/raw/csv/test_clientes.csv'
     test_reque_path = './data/raw/csv/test_requerimientos.csv'
     output_path = './output/'
+    do_merge = True
     write_impute_test = True
+    write_output = True
+    version = 4
 
     logger.info('Beginning execution')
     logger.info('Load dataframes')
     test_client = pd.read_csv(test_client_path, header=0)
+    test_reque = pd.read_csv(test_reque_path, header=0)
     main_client = pd.read_csv(train_client_path, header=0)
     main_reque = pd.read_csv(train_reque_path, header=0)
 
@@ -36,49 +40,84 @@ def main():
     index_client = test_client['ID_CORRELATIVO']
 
     if write_impute_test:
-        test_client = work_data.preprocess_client_test(test_client)
-        test_client = work_data.remove_columns(test_client, id_variables)
-        test_client = pd.DataFrame(fancyimpute.IterativeSVD().complete(test_client))
-        test_client.to_csv('./data/mod/test_imputed.csv', header=0, index=False)
+        logger.info('Creating new test database')
+        logger.info('Cleaning test reque database')
+        test_reque = work_data.preprocess_reque(test_reque)
+        print(test_reque.head().to_string())
+
+        logger.info('Cleaning test client database - Imputing missing values')
+        test_client = work_data.preprocess_client(test_client)
+        print(test_client.head().to_string())
+
+        logger.info('Merging test databases')
+        temp = pd.concat([test_client, test_reque], axis=1, join_axes=[test_client.index])
+        temp.fillna(0, inplace=True)
+        test_df = temp
+        print(test_df.head().to_string())
+        print(test_df.describe().transpose().to_string())
+
+        logger.info('Saving test database')
+        test_df.to_csv('./data/mod/test_imputed.csv', index=False)
+
+
     else:
-        test_client = pd.read_csv('./data/mod/test_imputed.csv', header=None)
+        logger.info('Opening test database')
+        test_df = pd.read_csv('./data/mod/test_imputed.csv', header=0)
+        print(test_df.head().to_string())
+
+    if do_merge:
+        logger.info('Creating new merge')
+        logger.info('Cleaning reque database')
+        main_reque = work_data.preprocess_reque(main_reque)
+        print(main_reque.head().to_string())
+
+        #main_reque = pd.pivot_table(main_reque, index=['ID_CORRELATIVO'], columns=['CODMES'], aggfunc=np.sum)
+        #main_reque.columns = main_reque.columns.map('{0[0]}|{0[1]}'.format)
+        #main_reque.fillna(0, inplace=True)
+
+        logger.info('Cleaning client database - Imputing missing values')
+        target = main_client.pop('ATTRITION')
+        target.index = main_client['ID_CORRELATIVO']
+        main_client = work_data.preprocess_client(main_client)
+        main_client['ATTRITION'] = target
+        print(main_client.head().to_string())
+
+        logger.info('Merging databases')
+        temp = pd.concat([main_client, main_reque], axis=1, join_axes=[main_client.index])
+        temp.fillna(0, inplace=True)
+        main_df = temp
 
 
-    #----- MERGE ----
-    #main_reque = pd.get_dummies(main_reque)
-    #main_reque = pd.pivot_table(main_reque, index=['ID_CORRELATIVO'],columns=['CODMES'], aggfunc=np.sum)
-    #main_reque.columns = main_reque.columns.map('{0[0]}|{0[1]}'.format)
-    #main_reque.fillna(0, inplace=True)
+        #logger.info('Cleaning reque')
+        #temp_reque = temp[reque_cols].copy()
+        #temp_reque.fillna(0, inplace=True)
 
-    #main_df = pd.concat([main_client, main_reque], axis=1, join_axes=[main_client.index]).reset_index()
-    #main_df.fillna(0, inplace=True)
-    #print(main_df.head().to_string())
-    #work_data.basic_descriptive(main_df)
-    #---------------
+        #logger.info('Implementing PCA')
+        #temp_reque = pd.DataFrame(work_data.do_pca(temp_reque))
+        #temp_reque.index = temp_index
+        #pca_cols = ['comp_{0}'.format(x) for x in temp_reque.columns]
+        #main_client[pca_cols] = temp_reque
+        #main_df = main_client
+
+        print(main_df.shape)
+        print(main_df.head().to_string())
+        print(main_df.describe().transpose().to_string())
+        work_data.basic_descriptive(main_df)
+
+        logger.info('Saving marges database')
+        main_df.to_csv('./data/mod/merge1.csv', index=False)
+    else:
+        logger.info('Opening merged database')
+        main_df = pd.read_csv('./data/mod/merge1.csv', header=0)
+        print(main_df.head().to_string())
+        print(main_df.shape)
+
 
     #check_var = 'CODMES'
     #print(main_client[check_var].value_counts())
 
-    main_client = work_data.preprocess_client(main_client)
-    main_client = main_client.reset_index()
-    main_client = work_data.remove_columns(main_client, id_variables)
-
-
-    #print(main_client.head().to_string())
-    #print(main_reque.head().to_string())
-    #print(main_client.info())
-    #print(main_client.describe().transpose().to_string())
-
-    #y = main_df.pop('ATTRITION')
-    #x = main_df
-    y = main_client.pop('ATTRITION')
-    x = main_client
-
-    logger.info('Replacing missing values')
-    x = pd.DataFrame(fancyimpute.IterativeSVD().complete(x))
-
-    #work_data.basic_descriptive(x)
-    #hi
+    y = main_df.pop('ATTRITION')
+    x = main_df
 
     logger.info('Split data into train and test')
     x_train, x_test, y_train, y_test = models.split_data(x, y)
@@ -86,9 +125,10 @@ def main():
 
     logger.info('Run models')
 
-    logger.info('XgBoost')
-    xgboost_model = models.xgboost_grid(x_train, y_train)
-    print(xgboost_model.score(x_test, y_test))
+    #logger.info('XgBoost')
+    #xgboost_model = models.xgboost_grid(x_train, y_train)
+    #print('Test grid: {0}'.format(xgboost_model.score(x_test, y_test)))
+    #Test: -0.326
 
     #logger.info('LGBM')
     #lgbm_model = models.lightgbm_grid(x_train, y_train)
@@ -97,17 +137,19 @@ def main():
     logger.info('GBM')
     gbm_model = models.gbm_grid(x_train, y_train)
     print('Test grid: {0}'.format(gbm_model.score(x_test, y_test)))
+    #Test: -0.314
 
-    #full_gbm_model = models.gbm_full(x_train, y_train)
-    #y_test_pred = full_gbm_model.predict_proba(x_test)[:, 1]
-    #print('Test full: {0}'.format(log_loss(y_test, y_test_pred)))
-    #y_pred = full_gbm_model.predict_proba(test_client)[:, 1]
-    #y_pred = pd.Series(y_pred)
-    #print(y_pred.shape)
+    if write_output:
+        full_gbm_model = models.gbm_full(x_train, y_train)
+        y_test_pred = full_gbm_model.predict_proba(x_test)[:, 1]
+        print('Test full: {0}'.format(log_loss(y_test, y_test_pred)))
+        y_pred = full_gbm_model.predict_proba(test_df)[:, 1]
+        y_pred = pd.Series(y_pred)
+        print(y_pred.shape)
 
-    #final = pd.concat([index_client, y_pred], axis=1, ignore_index=True)
-    #final.columns = ['ID_CORRELATIVO', 'ATTRITION']
-    #final.to_csv(output_path + 'results_prelim2.csv', index=False)
+        final = pd.concat([index_client, y_pred], axis=1, ignore_index=True)
+        final.columns = ['ID_CORRELATIVO', 'ATTRITION']
+        final.to_csv(output_path + 'results_prelim{0].csv'.format(version), index=False)
 
     #logger.info('Logit')
     #logit_model = models.logit_grid(x_train, y_train)

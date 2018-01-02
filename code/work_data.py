@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import fancyimpute
+from sklearn.decomposition import PCA
 
 import config
 
@@ -50,7 +51,7 @@ def last_n_to_int(my_str, n):
 
 def extract_last_n_from_df(my_df, columns, n):
     """
-    Replace the columns in {columns} with their las {n} characters converted to int.
+    Replace the columns in {columns} with their last {n} characters converted to int.
     Args:
         my_df (pd.DataFrame): target DataFrame. Columns will be extracted from it.
         columns (list): contains target column names.
@@ -84,19 +85,52 @@ def remove_columns(my_df, columns):
     return my_df
 
 
+def continuous_to_discrete(my_df, name, threshold):
+    my_df = my_df.copy()
+    my_df[name] = pd.Series(list(my_df[name] > threshold), dtype='int32', index=my_df.index)
+    return my_df
+
+
+def preprocess_reque(my_df):
+    my_df = my_df.copy()
+    del(my_df['PRODUCTO_SERVICIO_2'])
+    del(my_df['SUBMOTIVO_2'])
+    del(my_df['CODMES'])
+    output = pd.get_dummies(my_df)
+    output = output.groupby('ID_CORRELATIVO').sum()
+
+    for my_var in discretize_vars():
+        output = continuous_to_discrete(output, my_var, 0)
+    return output
+
+
 def preprocess_client(my_df):
     str_variables = str_variables_with_int()
     output = extract_last_n_from_df(my_df, str_variables, 2)
     output = pd.get_dummies(output, drop_first=True)
-    #output = output.dropna(axis=1)
-    output.set_index('ID_CORRELATIVO', inplace=True)
+    id_client = my_df['ID_CORRELATIVO']
+    output = remove_columns(output, id_variables())
+    client_cols = output.columns
+    output = pd.DataFrame(fancyimpute.IterativeSVD(verbose=False).complete(output))
+    output.columns = client_cols
+    output.index = id_client
     return output
 
-def preprocess_client_test(my_df):
-    str_variables = str_variables_with_int()
-    output = extract_last_n_from_df(my_df, str_variables, 2)
-    output = pd.get_dummies(output, drop_first=True)
-    return output
+
+def do_pca(my_df):
+    my_df = my_df.copy()
+    # Number of components that explain 1% or more of the variance
+    pca = PCA()
+    pca.fit(my_df)
+    print(pca.components_.shape)
+    print(pca.components_)
+    print(pca.explained_variance_)
+    print(pca.explained_variance_ratio_)
+    print(sum(pca.explained_variance_ratio_>0.01))
+    print(sum(pca.singular_values_ >= 1))
+    my_df = pca.transform(my_df)
+    print(my_df.shape)
+    return my_df
 
 
 def str_variables_with_int():
@@ -115,3 +149,8 @@ def id_variables():
         list: contains the column names.
     """
     return ['ID_CORRELATIVO', 'CODMES']
+
+
+def discretize_vars():
+    return ['TIPO_REQUERIMIENTO2_Reclamo', 'TIPO_REQUERIMIENTO2_Solicitud', 'DICTAMEN_NO PROCEDE',
+            'DICTAMEN_PROCEDE PARCIAL', 'DICTAMEN_PROCEDE TOTAL']

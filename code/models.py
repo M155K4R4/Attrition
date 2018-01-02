@@ -15,7 +15,7 @@ np.random.seed(42)
 
 
 def split_data(x, y):
-    return train_test_split(x, y, test_size=0.3)
+    return train_test_split(x, y, test_size=0.6)
 
 
 def model_fit(alg, name_alg, x, y):
@@ -120,3 +120,7 @@ def voting(algorithms, x, y):
     vote = VotingClassifier(estimators=algorithms, voting='soft')
     model = vote.fit(x, y)
     return model
+
+
+def write_output(func):
+    return
