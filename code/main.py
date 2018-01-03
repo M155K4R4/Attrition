@@ -5,6 +5,7 @@ from sklearn.metrics import log_loss
 from sklearn.preprocessing import scale
 from sklearn.decomposition import pca
 import fancyimpute
+import xgbfir
 from matplotlib.pylab import rcParams
 rcParams['figure.figsize'] = 12, 4
 
@@ -127,6 +128,7 @@ def main():
 
     xgboost_full = models.xgboost_full_mod(x_train, y_train, x_test, y_test)
     print(xgboost_full)
+    xgbfir.saveXgbFI(xgboost_full, feature_names=main_df.columns, OutputXlsxFile='./data/mod/bbva.xlsx')
 
     #xgboost_full_result = models.xgboost_full(x_train, y_train, x_test, y_test)
     #print('Test grid: {0}'.format(xgboost_full_result))

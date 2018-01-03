@@ -119,11 +119,11 @@ def xgboost_grid(x, y, x_test, y_test):
     cv_results = xgb.cv(dtrain=x_dmatrix,
                         params=params,
                         nfold=5,
-                        num_boost_round=150,
+                        num_boost_round=1000,
                         metrics="logloss",
                         as_pandas=True,
                         seed=42,
-                        early_stopping_rounds=100)
+                        early_stopping_rounds=50)
     return cv_results
 
 
