@@ -114,6 +114,14 @@ def preprocess_client(my_df):
     output = pd.DataFrame(fancyimpute.IterativeSVD(verbose=False).complete(output))
     output.columns = client_cols
     output.index = id_client
+    #output['extra1'] = output.NRO_ACCES_CANAL1_MENOS0 + output.NRO_ACCES_CANAL1_MENOS1 + \
+    #                   output.NRO_ACCES_CANAL1_MENOS2 + output.NRO_ACCES_CANAL1_MENOS3 + \
+    #                   output.NRO_ACCES_CANAL1_MENOS4 + output.NRO_ACCES_CANAL1_MENOS5
+    #output = remove_columns(output, ['NRO_ACCES_CANAL1_MENOS{0}'.format(x) for x in range(6)])
+    #output['extra2'] = output.NRO_ACCES_CANAL2_MENOS0 + output.NRO_ACCES_CANAL2_MENOS1 + \
+    #                   output.NRO_ACCES_CANAL2_MENOS2 + output.NRO_ACCES_CANAL2_MENOS3 + \
+    #                   output.NRO_ACCES_CANAL2_MENOS4 + output.NRO_ACCES_CANAL2_MENOS5
+    #output = remove_columns(output, ['NRO_ACCES_CANAL2_MENOS{0}'.format(x) for x in range(6)])
     return output
 
 

@@ -5,6 +5,8 @@ from sklearn.metrics import log_loss
 from sklearn.preprocessing import scale
 from sklearn.decomposition import pca
 import fancyimpute
+from matplotlib.pylab import rcParams
+rcParams['figure.figsize'] = 12, 4
 
 import config
 import work_data
@@ -21,10 +23,10 @@ def main():
     test_client_path = './data/raw/csv/test_clientes.csv'
     test_reque_path = './data/raw/csv/test_requerimientos.csv'
     output_path = './output/'
-    do_merge = True
-    write_impute_test = True
+    do_merge = False
+    write_impute_test = False
     write_output = True
-    version = 4
+    version = 5
 
     logger.info('Beginning execution')
     logger.info('Load dataframes')
@@ -58,8 +60,6 @@ def main():
 
         logger.info('Saving test database')
         test_df.to_csv('./data/mod/test_imputed.csv', index=False)
-
-
     else:
         logger.info('Opening test database')
         test_df = pd.read_csv('./data/mod/test_imputed.csv', header=0)
@@ -87,7 +87,6 @@ def main():
         temp.fillna(0, inplace=True)
         main_df = temp
 
-
         #logger.info('Cleaning reque')
         #temp_reque = temp[reque_cols].copy()
         #temp_reque.fillna(0, inplace=True)
@@ -112,10 +111,6 @@ def main():
         print(main_df.head().to_string())
         print(main_df.shape)
 
-
-    #check_var = 'CODMES'
-    #print(main_client[check_var].value_counts())
-
     y = main_df.pop('ATTRITION')
     x = main_df
 
@@ -125,31 +120,38 @@ def main():
 
     logger.info('Run models')
 
-    #logger.info('XgBoost')
-    #xgboost_model = models.xgboost_grid(x_train, y_train)
-    #print('Test grid: {0}'.format(xgboost_model.score(x_test, y_test)))
-    #Test: -0.326
+    logger.info('XgBoost')
+    xgboost_result = models.xgboost_grid(x_train, y_train, x_test, y_test)
+    print('Test grid: {0}'.format(xgboost_result))
+    #Test: -0.322
+
+    xgboost_full = models.xgboost_full_mod(x_train, y_train, x_test, y_test)
+    print(xgboost_full)
+
+    #xgboost_full_result = models.xgboost_full(x_train, y_train, x_test, y_test)
+    #print('Test grid: {0}'.format(xgboost_full_result))
+
+    config.time_taken_display(t0)
 
     #logger.info('LGBM')
     #lgbm_model = models.lightgbm_grid(x_train, y_train)
     #print(lgbm_model.score(x_test, y_test))
 
-    logger.info('GBM')
-    gbm_model = models.gbm_grid(x_train, y_train)
-    print('Test grid: {0}'.format(gbm_model.score(x_test, y_test)))
+    #logger.info('GBM')
+    #gbm_model = models.gbm_grid(x_train, y_train)
+    #print('Test grid: {0}'.format(gbm_model.score(x_test, y_test)))
     #Test: -0.314
 
     if write_output:
-        full_gbm_model = models.gbm_full(x_train, y_train)
-        y_test_pred = full_gbm_model.predict_proba(x_test)[:, 1]
-        print('Test full: {0}'.format(log_loss(y_test, y_test_pred)))
-        y_pred = full_gbm_model.predict_proba(test_df)[:, 1]
+        logger.info('Predict test')
+        y_pred = xgboost_full.predict_proba(test_df)[:, 1]
         y_pred = pd.Series(y_pred)
         print(y_pred.shape)
 
+        logger.info('Saving predictions')
         final = pd.concat([index_client, y_pred], axis=1, ignore_index=True)
         final.columns = ['ID_CORRELATIVO', 'ATTRITION']
-        final.to_csv(output_path + 'results_prelim{0].csv'.format(version), index=False)
+        final.to_csv(output_path + 'results_prelim{0}.csv'.format(version), index=False)
 
     #logger.info('Logit')
     #logit_model = models.logit_grid(x_train, y_train)
