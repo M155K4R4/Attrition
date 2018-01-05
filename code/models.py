@@ -5,10 +5,13 @@ import xgboost as xgb
 import lightgbm as lgb
 from sklearn.ensemble import GradientBoostingClassifier, AdaBoostClassifier, VotingClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, Imputer, scale
+from sklearn.preprocessing import StandardScaler, Imputer, scale, FunctionTransformer, OneHotEncoder, PolynomialFeatures
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss, accuracy_score
+from sklearn.cluster import KMeans
+from MulticoreTSNE import MulticoreTSNE as TSNE
+from sklearn.neighbors import NearestNeighbors
 import matplotlib.pyplot as plt
 
 import config
@@ -42,7 +45,7 @@ def model_fit_xgb(alg, x, y, x_test, y_test, useTrainCV=True, cv_folds=5, early_
     print('Logloss (Test): {0}'.format(log_loss(y_test, dtrain_predprob_test)))
 
     feat_imp = pd.Series(alg.booster().get_fscore()).sort_values(ascending=False)
-    feat_imp.plot(kind='bar', title='Feature Importances')
+    feat_imp.plot(kind='bar', title='Feature Importance')
     plt.ylabel('Feature Importance Score')
     plt.show()
     return alg
@@ -52,8 +55,8 @@ def split_data(x, y):
     return train_test_split(x, y, test_size=0.3)
 
 
-def model_fit(alg, name_alg, x, y):
-    steps = [('scale', StandardScaler()),
+def model_fit(alg, name_alg, x, y, scaling):
+    steps = [('scale', scaling),
              (name_alg, alg)]
     pipeline = Pipeline(steps)
     pipeline.fit(x, y)
@@ -67,15 +70,15 @@ def gbm_full(x, y):
     return model
 
 
-def grid_fit(alg, name_alg, params, x, y):
-    steps = [('scale', StandardScaler()),
+def grid_fit(alg, name_alg, params, x, y, scaling):
+    steps = [('scale', scaling),
              (name_alg, alg)]
     pipeline = Pipeline(steps)
-    alg_cv = GridSearchCV(pipeline, params, cv=10, n_jobs=8, scoring='neg_log_loss')
+    alg_cv = GridSearchCV(pipeline, params, cv=5, n_jobs=8, scoring='neg_log_loss')
     alg_cv.fit(x, y)
-    pprint.pprint(alg_cv.cv_results_)
-    print(alg_cv.best_score_)
-    print(alg_cv.best_params_)
+    #pprint.pprint(alg_cv.cv_results_)
+    logger.info('Best score: {0}'.format(alg_cv.best_score_))
+    logger.info('Best params: {0}'.format(alg_cv.best_params_))
     return alg_cv
 
 
@@ -87,12 +90,12 @@ def gbm_grid(x, y):
     return model
 
 
-def logit_grid(x, y):
+def logit_grid(x, y, penalty, scaling):
     alg = LogisticRegression()
     alg_name = 'logit'
     params = {'logit__C': np.logspace(-3, 1, num=10),
-              'logit__penalty': ['l1', 'l2']}
-    model = grid_fit(alg, alg_name, params, x, y)
+              'logit__penalty': [penalty]}
+    model = grid_fit(alg, alg_name, params, x, y, scaling)
     return model
 
 
@@ -102,11 +105,6 @@ def adaboost_grid(x, y):
     params = {}
     model = grid_fit(alg, alg_name, params, x, y)
     return model
-
-
-def xgboost_grid_mod(x, y):
-
-    return
 
 
 def xgboost_grid(x, y, x_test, y_test):
@@ -206,5 +204,52 @@ def voting(algorithms, x, y):
     return model
 
 
-def write_output(func):
+def write_prediction(model, x, index, name):
+    y_pred = model.predict_proba(x)[:, 1]
+    y_pred = pd.Series(y_pred)
+    final = pd.concat([index, y_pred], axis=1, ignore_index=True)
+    final.columns = ['ID_CORRELATIVO', name]
+    final.to_csv('./data/mod/{0}.csv'.format(name), index=False)
     return
+
+
+def kmeans(my_df, n):
+    my_df = my_df.copy()
+    model = KMeans(n, n_jobs=-2)
+    model.fit(my_df)
+    clusters = model.predict(my_df)
+    return clusters
+
+
+def standard_scale_df(my_df):
+    return pd.DataFrame(scale(my_df), columns=my_df.columns)
+
+
+def tnse(my_df):
+    output = TSNE(n_components=2, n_jobs=7, perplexity=30, random_state=42).fit_transform(my_df)
+    return output
+
+
+def create_interactions(my_df, my_vars):
+    target = my_df[my_vars].copy()
+    output = PolynomialFeatures(include_bias=False).fit_transform(target)
+    names = list(my_df.columns) + ['inter_{0}'.format(x) for x in range(output.shape[1])]
+    output = np.concatenate((my_df, output), axis=1)
+    return pd.DataFrame(output, columns=names)
+
+
+def inter_vars():
+    return ['RANG_SDO_PASIVO_MENOS0',
+            'ANTIGUEDAD',
+            'RANG_INGRESO',
+            'RANG_NRO_PRODUCTOS_MENOS0',
+            'FLG_SEGURO_MENOS1',
+            'NRO_ACCES_CANAL3_MENOS1']
+
+
+def knn_distance(my_df, n):
+    model = NearestNeighbors(n_jobs=7)
+    model.fit(my_df)
+    output = model.kneighbors(np.array(my_df), n_neighbors=n)
+    output = output[0].sum(axis=1)
+    return output

@@ -91,6 +91,14 @@ def continuous_to_discrete(my_df, name, threshold):
     return my_df
 
 
+def count_missings_column(my_df):
+    my_df = my_df.copy()
+    cols_with_missing = (col for col in my_df.columns if my_df[col].isnull().any())
+    for col in cols_with_missing:
+        my_df[col + '_missing'] = my_df[col].isnull()
+    return my_df
+
+
 def preprocess_reque(my_df):
     my_df = my_df.copy()
     del(my_df['PRODUCTO_SERVICIO_2'])

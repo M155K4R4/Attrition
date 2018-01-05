@@ -5,6 +5,7 @@ from sklearn.metrics import log_loss
 from sklearn.preprocessing import scale
 from sklearn.decomposition import pca
 import fancyimpute
+from sklearn.preprocessing import StandardScaler
 import xgbfir
 from matplotlib.pylab import rcParams
 rcParams['figure.figsize'] = 12, 4
@@ -26,7 +27,8 @@ def main():
     output_path = './output/'
     do_merge = False
     write_impute_test = False
-    write_output = True
+    write_output = False
+    add_variables = False
     version = 5
 
     logger.info('Beginning execution')
@@ -77,6 +79,7 @@ def main():
         #main_reque.fillna(0, inplace=True)
 
         logger.info('Cleaning client database - Imputing missing values')
+        main_client = work_data.count_missings_column(main_client)
         target = main_client.pop('ATTRITION')
         target.index = main_client['ID_CORRELATIVO']
         main_client = work_data.preprocess_client(main_client)
@@ -113,13 +116,68 @@ def main():
         print(main_df.shape)
 
     y = main_df.pop('ATTRITION')
-    x = main_df
+
+    if False:
+        logger.info('Creating T-SNE database')
+        temp_tsne = pd.DataFrame(models.tnse(main_df))
+        temp_tsne.to_csv('./data/mod/merge1_tsne.csv', index=False)
+    else:
+        logger.info('Loading T-SNE database')
+        temp_tsne = pd.read_csv('./data/mod/merge1_tsne.csv')
+
+    if add_variables:
+        logger.info('Beginning feature engineering')
+        logger.info('Interactions')
+        main_df_feat = models.create_interactions(main_df, models.inter_vars())
+
+        logger.info('Row sums 1-3')
+        main_df_feat['ext1'] = main_df.apply(lambda row: (row == 0).sum(), axis=1)
+        temp = models.standard_scale_df(main_df)
+        main_df_feat['ext2'] = temp.apply(lambda row: (row > 0.5).sum(), axis=1)
+        main_df_feat['ext3'] = temp.apply(lambda row: (row < -0.5).sum(), axis=1)
+
+        logger.info('K-means 4-7')
+        main_df_feat['ext4'] = pd.Series(models.kmeans(main_df, 5)).apply(str)
+        main_df_feat['ext5'] = pd.Series(models.kmeans(main_df, 10)).apply(str)
+        main_df_feat['ext6'] = pd.Series(models.kmeans(main_df, 15)).apply(str)
+        main_df_feat['ext7'] = pd.Series(models.kmeans(main_df, 20)).apply(str)
+
+        logger.info('KNN 8-11')
+        main_df_feat['ext8'] = models.knn_distance(main_df, 2)
+        main_df_feat['ext9'] = models.knn_distance(main_df, 3)
+        main_df_feat['ext10'] = models.knn_distance(main_df, 5)
+        main_df_feat['ext11'] = models.knn_distance(temp_tsne, 2)
+
+        main_df_feat = pd.get_dummies(main_df_feat, drop_first=True)
+        print(main_df_feat.head().to_string())
+        print(main_df_feat.shape)
+        config.time_taken_display(t0)
+        logger.info('Saving features database')
+        main_df_feat.to_csv('./data/mod/merge1_features.csv', index=False)
+    else:
+        logger.info('Opening feature engineered database')
+        main_df_feat = pd.read_csv('./data/mod/merge1_features.csv', header=0)
+        print(main_df_feat.head().to_string())
+        print(main_df_feat.shape)
 
     logger.info('Split data into train and test')
+    x = main_df_feat
     x_train, x_test, y_train, y_test = models.split_data(x, y)
     work_data.basic_descriptive(x_train)
 
-    logger.info('Run models')
+    logger.info('Level 1 - Create metafeatures')
+    logger.info('1. Ridge logit')
+    ridge_model = models.logit_grid(x, y, 'l2', StandardScaler())
+    models.write_prediction(ridge_model, x, index_client, 'ridge_standard')
+    # print(ridge_model.score(x_test, y_test))
+
+    logger.info('2. Lasso logit')
+    lasso_model = models.logit_grid(x, y, 'l1',StandardScaler())
+    models.write_prediction(lasso_model, x, index_client, 'lasso_standard')
+    # print(lasso_model.score(x_test, y_test))
+    config.time_taken_display(t0)
+    hi
+
 
     logger.info('XgBoost')
     xgboost_result = models.xgboost_grid(x_train, y_train, x_test, y_test)
@@ -132,8 +190,6 @@ def main():
 
     #xgboost_full_result = models.xgboost_full(x_train, y_train, x_test, y_test)
     #print('Test grid: {0}'.format(xgboost_full_result))
-
-    config.time_taken_display(t0)
 
     #logger.info('LGBM')
     #lgbm_model = models.lightgbm_grid(x_train, y_train)
@@ -154,10 +210,6 @@ def main():
         final = pd.concat([index_client, y_pred], axis=1, ignore_index=True)
         final.columns = ['ID_CORRELATIVO', 'ATTRITION']
         final.to_csv(output_path + 'results_prelim{0}.csv'.format(version), index=False)
-
-    #logger.info('Logit')
-    #logit_model = models.logit_grid(x_train, y_train)
-    #print(logit_model.score(x_test, y_test))
 
     #logger.info('AdaBoost')
     #ada_model = models.adaboost_grid(x_train, y_train)
