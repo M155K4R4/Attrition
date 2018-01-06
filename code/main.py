@@ -166,18 +166,28 @@ def main():
     work_data.basic_descriptive(x_train)
 
     logger.info('Level 1 - Create metafeatures')
-    logger.info('1. Ridge logit')
-    ridge_model = models.logit_grid(x, y, 'l2', StandardScaler())
-    models.write_prediction(ridge_model, x, index_client, 'ridge_standard')
-    # print(ridge_model.score(x_test, y_test))
 
-    logger.info('2. Lasso logit')
-    lasso_model = models.logit_grid(x, y, 'l1',StandardScaler())
-    models.write_prediction(lasso_model, x, index_client, 'lasso_standard')
-    # print(lasso_model.score(x_test, y_test))
+    if False:
+        logger.info('1. Ridge logit')
+        ridge_model = models.logit_grid(x, y, 'l2', StandardScaler())
+        models.write_prediction(ridge_model, x, index_client, 'ridge_standard')
+        # print(ridge_model.score(x_test, y_test))
+
+        logger.info('2. Lasso logit')
+        lasso_model = models.logit_grid(x, y, 'l1',StandardScaler())
+        models.write_prediction(lasso_model, x, index_client, 'lasso_standard')
+        # print(lasso_model.score(x_test, y_test))
+
+    logger.info('3. Random Forrest')
+    RF_model = models.random_forrest_grid(x, y, StandardScaler())
+    models.write_prediction(RF_model, x, index_client, 'RF_standard')
+
+    logger.info('4. Extra Trees')
+    ET_model = models.extra_trees_grid(x, y, StandardScaler())
+    models.write_prediction(ET_model, x, index_client, 'ET_standard')
+
     config.time_taken_display(t0)
     hi
-
 
     logger.info('XgBoost')
     xgboost_result = models.xgboost_grid(x_train, y_train, x_test, y_test)

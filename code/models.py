@@ -3,9 +3,11 @@ import pandas as pd
 import pprint
 import xgboost as xgb
 import lightgbm as lgb
-from sklearn.ensemble import GradientBoostingClassifier, AdaBoostClassifier, VotingClassifier
+from sklearn.ensemble import GradientBoostingClassifier, AdaBoostClassifier, VotingClassifier, \
+    RandomForestClassifier, ExtraTreesClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, Imputer, scale, FunctionTransformer, OneHotEncoder, PolynomialFeatures
+from sklearn.preprocessing import StandardScaler, Imputer, scale, FunctionTransformer, OneHotEncoder, \
+    PolynomialFeatures
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss, accuracy_score
@@ -99,6 +101,22 @@ def logit_grid(x, y, penalty, scaling):
     return model
 
 
+def random_forrest_grid(x, y, scaling):
+    alg = RandomForestClassifier(n_estimators=300)
+    alg_name = 'RF'
+    params = {'RF__min_samples_split': 3, 'RF__min_samples_leaf': 5}
+    model = grid_fit(alg, alg_name, params, x, y, scaling)
+    return model
+
+
+def extra_trees_grid(x, y, scaling):
+    alg = ExtraTreesClassifier(n_estimators=300)
+    alg_name = 'ET'
+    params = {}
+    model = grid_fit(alg, alg_name, params, x, y, scaling)
+    return model
+
+
 def adaboost_grid(x, y):
     alg = AdaBoostClassifier()
     alg_name = 'ada'
@@ -159,7 +177,6 @@ def xgboost_full(x, y, x_test, y_test):
     return xg_boost
 
 
-
 def lightgbm_grid(x, y):
     #lgb.Dataset(x, y, max_bin=512)
     params = {
@@ -209,7 +226,7 @@ def write_prediction(model, x, index, name):
     y_pred = pd.Series(y_pred)
     final = pd.concat([index, y_pred], axis=1, ignore_index=True)
     final.columns = ['ID_CORRELATIVO', name]
-    final.to_csv('./data/mod/{0}.csv'.format(name), index=False)
+    final.to_csv('./data/mod/meta_features/{0}.csv'.format(name), index=False)
     return
 
 
