@@ -51,6 +51,7 @@ def main():
         print(test_reque.head().to_string())
 
         logger.info('Cleaning test client database - Imputing missing values')
+        test_client = work_data.count_missings_column(test_client)
         test_client = work_data.preprocess_client(test_client)
         print(test_client.head().to_string())
 
@@ -91,17 +92,6 @@ def main():
         temp.fillna(0, inplace=True)
         main_df = temp
 
-        #logger.info('Cleaning reque')
-        #temp_reque = temp[reque_cols].copy()
-        #temp_reque.fillna(0, inplace=True)
-
-        #logger.info('Implementing PCA')
-        #temp_reque = pd.DataFrame(work_data.do_pca(temp_reque))
-        #temp_reque.index = temp_index
-        #pca_cols = ['comp_{0}'.format(x) for x in temp_reque.columns]
-        #main_client[pca_cols] = temp_reque
-        #main_df = main_client
-
         print(main_df.shape)
         print(main_df.head().to_string())
         print(main_df.describe().transpose().to_string())
@@ -116,6 +106,7 @@ def main():
         print(main_df.shape)
 
     y = main_df.pop('ATTRITION')
+    main_df = main_df.append(test_df).reset_index(drop=True)
 
     if False:
         logger.info('Creating T-SNE database')
@@ -161,7 +152,10 @@ def main():
         print(main_df_feat.shape)
 
     logger.info('Split data into train and test')
-    x = main_df_feat
+    x, test_df = main_df_feat.iloc[:70000, :], main_df_feat.iloc[70000:, :]
+    print(main_df_feat.shape)
+    print(x.shape)
+    print(test_df.shape)
     x_train, x_test, y_train, y_test = models.split_data(x, y)
     work_data.basic_descriptive(x_train)
 
@@ -170,21 +164,49 @@ def main():
     if False:
         logger.info('1. Ridge logit')
         ridge_model = models.logit_grid(x, y, 'l2', StandardScaler())
-        models.write_prediction(ridge_model, x, index_client, 'ridge_standard')
+        models.write_prediction(ridge_model, main_df_feat, index_client, 'ridge_standard')
         # print(ridge_model.score(x_test, y_test))
 
         logger.info('2. Lasso logit')
         lasso_model = models.logit_grid(x, y, 'l1',StandardScaler())
-        models.write_prediction(lasso_model, x, index_client, 'lasso_standard')
+        models.write_prediction(lasso_model, main_df_feat, index_client, 'lasso_standard')
         # print(lasso_model.score(x_test, y_test))
 
-    logger.info('3. Random Forrest')
-    RF_model = models.random_forrest_grid(x, y, StandardScaler())
-    models.write_prediction(RF_model, x, index_client, 'RF_standard')
+        logger.info('3. Random Forrest')
+        RF_model = models.random_forrest_grid(x, y, StandardScaler())
+        models.write_prediction(RF_model, main_df_feat, index_client, 'RF_standard')
 
-    logger.info('4. Extra Trees')
-    ET_model = models.extra_trees_grid(x, y, StandardScaler())
-    models.write_prediction(ET_model, x, index_client, 'ET_standard')
+        logger.info('4. Extra Trees')
+        ET_model = models.extra_trees_grid(x, y, StandardScaler())
+        models.write_prediction(ET_model, main_df_feat, index_client, 'ET_standard')
+
+    logger.info('5. 2-KNN')
+    KNN_model = models.knn_grid(x, y, StandardScaler(), 2)
+    models.write_prediction(KNN_model, main_df_feat, index_client, 'KNN2_standard')
+
+    logger.info('6. 4-KNN')
+    KNN_model = models.knn_grid(x, y, StandardScaler(), 4)
+    models.write_prediction(KNN_model, main_df_feat, index_client, 'KNN4_standard')
+
+    logger.info('7. 8-KNN')
+    KNN_model = models.knn_grid(x, y, StandardScaler(), 8)
+    models.write_prediction(KNN_model, main_df_feat, index_client, 'KNN8_standard')
+
+    logger.info('8. 16-KNN')
+    KNN_model = models.knn_grid(x, y, StandardScaler(), 16)
+    models.write_prediction(KNN_model, main_df_feat, index_client, 'KNN16_standard')
+
+    logger.info('9. 32-KNN')
+    KNN_model = models.knn_grid(x, y, StandardScaler(), 32)
+    models.write_prediction(KNN_model, main_df_feat, index_client, 'KNN32_standard')
+
+    logger.info('10. 64-KNN')
+    KNN_model = models.knn_grid(x, y, StandardScaler(), 64)
+    models.write_prediction(KNN_model, main_df_feat, index_client, 'KNN64_standard')
+
+    logger.info('11. 128-KNN')
+    KNN_model = models.knn_grid(x, y, StandardScaler(), 128)
+    models.write_prediction(KNN_model, main_df_feat, index_client, 'KNN128_standard')
 
     config.time_taken_display(t0)
     hi

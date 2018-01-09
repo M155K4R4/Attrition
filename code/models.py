@@ -13,7 +13,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss, accuracy_score
 from sklearn.cluster import KMeans
 from MulticoreTSNE import MulticoreTSNE as TSNE
-from sklearn.neighbors import NearestNeighbors
+from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 import matplotlib.pyplot as plt
 
 import config
@@ -104,7 +104,8 @@ def logit_grid(x, y, penalty, scaling):
 def random_forrest_grid(x, y, scaling):
     alg = RandomForestClassifier(n_estimators=300)
     alg_name = 'RF'
-    params = {'RF__min_samples_split': 3, 'RF__min_samples_leaf': 5}
+    params = {'RF__min_samples_split': [3],
+              'RF__min_samples_leaf': [5]}
     model = grid_fit(alg, alg_name, params, x, y, scaling)
     return model
 
@@ -112,7 +113,18 @@ def random_forrest_grid(x, y, scaling):
 def extra_trees_grid(x, y, scaling):
     alg = ExtraTreesClassifier(n_estimators=300)
     alg_name = 'ET'
-    params = {}
+    params = {'ET__min_samples_split': [3],
+              'ET__min_samples_leaf': [5],
+              'ET__max_features': [22]}
+    model = grid_fit(alg, alg_name, params, x, y, scaling)
+    return model
+
+
+def knn_grid(x, y, scaling, n):
+    alg = KNeighborsClassifier()
+    alg_name = 'KNN'
+    params = {'KNN__n_neighbors': [n],
+              'KNN__p': [1, 2]}
     model = grid_fit(alg, alg_name, params, x, y, scaling)
     return model
 
