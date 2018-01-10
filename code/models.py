@@ -14,6 +14,8 @@ from sklearn.metrics import log_loss, accuracy_score
 from sklearn.cluster import KMeans
 from MulticoreTSNE import MulticoreTSNE as TSNE
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import MLPClassifier
 import matplotlib.pyplot as plt
 
 import config
@@ -54,7 +56,7 @@ def model_fit_xgb(alg, x, y, x_test, y_test, useTrainCV=True, cv_folds=5, early_
 
 
 def split_data(x, y):
-    return train_test_split(x, y, test_size=0.3)
+    return train_test_split(x, y, test_size=0.2)
 
 
 def model_fit(alg, name_alg, x, y, scaling):
@@ -84,11 +86,12 @@ def grid_fit(alg, name_alg, params, x, y, scaling):
     return alg_cv
 
 
-def gbm_grid(x, y):
+def gbm_grid(x, y, scaling):
     alg = GradientBoostingClassifier(n_estimators=300)
     alg_name = 'gbm'
-    params = {}
-    model = grid_fit(alg, alg_name, params, x, y)
+    params = {'gbm__min_samples_split': [3],
+              'gbm__min_samples_leaf': [5]}
+    model = grid_fit(alg, alg_name, params, x, y, scaling)
     return model
 
 
@@ -129,11 +132,30 @@ def knn_grid(x, y, scaling, n):
     return model
 
 
-def adaboost_grid(x, y):
+def naive_bayes_grid(x, y, scaling):
+    alg = GaussianNB()
+    alg_name = 'NB'
+    params = {}
+    model = grid_fit(alg, alg_name, params, x, y, scaling)
+    return model
+
+
+def MLP_grid(x, y, scaling):
+    alg = MLPClassifier(activation='relu', max_iter=200)
+    alg_name = 'MLP'
+    params = {'MLP__hidden_layer_sizes':[(200, 100)],
+              'MLP__alpha': [0.077426368268112777],
+              'MLP__max_iter': [250]}
+    model = grid_fit(alg, alg_name, params, x, y, scaling)
+    return model
+
+
+def adaboost_grid(x, y, scaling):
     alg = AdaBoostClassifier()
     alg_name = 'ada'
-    params = {}
-    model = grid_fit(alg, alg_name, params, x, y)
+    params = {'ada__learning_rate': [0.3],
+              'ada__n_estimators': [200]}
+    model = grid_fit(alg, alg_name, params, x, y, scaling)
     return model
 
 
@@ -189,15 +211,15 @@ def xgboost_full(x, y, x_test, y_test):
     return xg_boost
 
 
-def lightgbm_grid(x, y):
+def lgbm_grid(x, y, scaling):
     #lgb.Dataset(x, y, max_bin=512)
     params = {
         'boosting_type': 'gbdt',
-        'max_depth': -1,
+        'max_depth': 5,
         'objective': 'binary',
-        'num_leaves': 64,
+        'num_leaves': 10,
         'learning_rate': 0.05,
-        'subsample_for_bin': 200,
+        'subsample_for_bin': 1000,
         'subsample': 1,
         'subsample_freq': 1,
         'colsample_bytree': 0.8,
@@ -208,7 +230,8 @@ def lightgbm_grid(x, y):
         'min_child_samples': 5,
         'scale_pos_weight': 1,
         'num_class': 1,
-        'metric': ['binary_error', 'auc']
+        'metric': ['logloss'],
+
     }
     grid_params = {}
     alg_name = 'lgbm'
@@ -216,14 +239,16 @@ def lightgbm_grid(x, y):
                              objective='binary',
                              silent=True,
                              max_depth=params['max_depth'],
+                             num_leaves=params['num_leaves'],
                              subsample_for_bin=params['subsample_for_bin'],
                              subsample=params['subsample'],
                              subsample_freq=params['subsample_freq'],
                              min_split_gain=params['min_split_gain'],
                              min_child_weight=params['min_child_weight'],
                              min_child_samples=params['min_child_samples'],
-                             scale_pos_weight=params['scale_pos_weight'])
-    model = grid_fit(alg, alg_name, grid_params, x, y)
+                             scale_pos_weight=params['scale_pos_weight'],
+                             max_bin=params['max_bin'])
+    model = grid_fit(alg, alg_name, grid_params, x, y, scaling)
     return model
 
 
@@ -282,3 +307,20 @@ def knn_distance(my_df, n):
     output = model.kneighbors(np.array(my_df), n_neighbors=n)
     output = output[0].sum(axis=1)
     return output
+
+
+def log_df(my_df):
+    output = np.apply_along_axis(sum_min, 0, my_df)
+    output = np.log(output + 1)
+    return output
+
+
+def sum_min(my_series):
+    output = my_series + np.abs(np.min(my_series))
+    return output
+
+
+def log_transformer():
+    return FunctionTransformer(log_df)
+
+
