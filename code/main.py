@@ -13,6 +13,7 @@ rcParams['figure.figsize'] = 12, 4
 import config
 import work_data
 import models
+import os
 
 
 def main():
@@ -29,7 +30,7 @@ def main():
     write_impute_test = False
     write_output = False
     add_variables = False
-    version = 5
+    version = 6
 
     logger.info('Beginning execution')
     logger.info('Load dataframes')
@@ -252,10 +253,45 @@ def main():
         models.write_prediction(gbm_model, main_df_feat, index_client, 'gbm_standard')
         print(gbm_model.score(x_test, y_test))
 
-    logger.info('18. LightGBM')
-    lgbm_model = models.lgbm_grid(x, y, StandardScaler())
-    models.write_prediction(lgbm_model, main_df_feat, index_client, 'lgbm_standard')
-    print(lgbm_model.score(x_test, y_test))
+        logger.info('18. LightGBM')
+        lgbm_model = models.lgbm_grid(x, y, None)
+        models.write_prediction(lgbm_model, main_df_feat, index_client, 'lgbm_none')
+        print(lgbm_model.score(x_test, y_test))
+
+    logger.info('19. XgBoost')
+    test_final = main_df_feat.iloc[70000:, :]
+    id_test = test_client['ID_CORRELATIVO']
+    xgboost_model = models.xgboost_grid(x, y, StandardScaler())
+    models.write_prediction(xgboost_model, main_df_feat, index_client, 'xgboost_standard')
+    print(xgboost_model.score(x_test, y_test))
+    models.write_prediction(xgboost_model, test_final, id_test, 'ATTRITION')
+    hi
+
+    # Stage 2:
+    logger.info('Level 2')
+    logger.info('Creating meta-features database')
+    meta_features_list = os.listdir('./data/mod/meta_features')
+    temp = {}
+    for feature in meta_features_list:
+        temp_df = pd.read_csv('./data/mod/meta_features/{0}'.format(feature), header=0)
+        temp[feature] = temp_df.iloc[:, 1]
+    meta_features = pd.DataFrame(temp)
+    meta_features = pd.concat([meta_features, main_df_feat], axis=1, ignore_index=True)
+    x = meta_features.iloc[:70000, :]
+    test_final = meta_features.iloc[70000:, :]
+    x_train, x_test, y_train, y_test = models.split_data(x, y)
+
+    print(x_train.shape)
+    print(test_final.shape)
+    print(x.shape)
+
+    logger.info('Estimating second level model with XgBoost')
+    xgboost_final = models.xgboost_full_mod(x_train, y_train)
+    print(xgboost_final.score(x_test, y_test))
+    print(models.get_logloss(y_test, xgboost_final.predict_proba(x_test)[:, 1]))
+    models.write_final_prediction(xgboost_final, test_final, test_client['ID_CORRELATIVO'], 'results8')
+    models.write_final_prediction(xgboost_final, x, main_client['ATTRITION'], 'train')
+
 
     config.time_taken_display(t0)
     hi
@@ -268,65 +304,6 @@ def main():
     xgboost_full = models.xgboost_full_mod(x_train, y_train, x_test, y_test)
     print(xgboost_full)
     xgbfir.saveXgbFI(xgboost_full, feature_names=main_df.columns, OutputXlsxFile='./data/mod/bbva.xlsx')
-
-    #xgboost_full_result = models.xgboost_full(x_train, y_train, x_test, y_test)
-    #print('Test grid: {0}'.format(xgboost_full_result))
-
-    #logger.info('LGBM')
-    #lgbm_model = models.lightgbm_grid(x_train, y_train)
-    #print(lgbm_model.score(x_test, y_test))
-
-    #logger.info('GBM')
-    #gbm_model = models.gbm_grid(x_train, y_train)
-    #print('Test grid: {0}'.format(gbm_model.score(x_test, y_test)))
-    #Test: -0.314
-
-    if write_output:
-        logger.info('Predict test')
-        y_pred = xgboost_full.predict_proba(test_df)[:, 1]
-        y_pred = pd.Series(y_pred)
-        print(y_pred.shape)
-
-        logger.info('Saving predictions')
-        final = pd.concat([index_client, y_pred], axis=1, ignore_index=True)
-        final.columns = ['ID_CORRELATIVO', 'ATTRITION']
-        final.to_csv(output_path + 'results_prelim{0}.csv'.format(version), index=False)
-
-    #logger.info('AdaBoost')
-    #ada_model = models.adaboost_grid(x_train, y_train)
-    #print(ada_model.score(x_test, y_test))
-
-    config.time_taken_display(t0)
-
-    #TODO Unbalanced classification problem
-
-    # Brain storm for preprocessing:
-    # 1. As you see it.
-    # 2. Mean across the 5 months.
-    # 3. Weighted mean across the 5 months. Give more weight to the most recent.
-    # 4. PCA. -> visualize 2 dim!
-    # 5. 2-month window average.
-    # 6. Discretize continuous variables. Especially those with many zeros.
-
-    # There are some missing values. We must try the following:
-    # YES 1. Keep only obs with complete information.
-    # NO 2. Input values to missing obs.
-
-    # Fist, create the classification algorithm, then implement the preprocessing alternatives
-
-    # Brain storm for classification:
-    # *1. GBM - LGBM
-    # 2. XGBoost
-    # *3. Adaboost
-    # 4. SMOTE
-    # 5. Boosting for unbalanced classes.
-    # *6. Logit lasso/ridge
-    # 7. NN -> problem optimizing, I don't have enough computational power.
-    # 8. Voting Classifier - soft (for the best 3?)
-
-    # All the algorithms must be implemented with a 10-fold CV and a GridSearch.
-    # Report accuracy and auc
-
 
 if __name__ == '__main__':
     main()

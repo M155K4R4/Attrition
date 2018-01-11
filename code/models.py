@@ -56,7 +56,7 @@ def model_fit_xgb(alg, x, y, x_test, y_test, useTrainCV=True, cv_folds=5, early_
 
 
 def split_data(x, y):
-    return train_test_split(x, y, test_size=0.2)
+    return train_test_split(x, y, test_size=0.4)
 
 
 def model_fit(alg, name_alg, x, y, scaling):
@@ -159,37 +159,56 @@ def adaboost_grid(x, y, scaling):
     return model
 
 
-def xgboost_grid(x, y, x_test, y_test):
-    x = scale(x)
-    x_dmatrix = xgb.DMatrix(x, label=y)
-    x_test = scale(x_test)
-    test_dmatrix = xgb.DMatrix(x_test, label=y_test)
-    params = {'objective': 'binary:logistic', 'silent': 1, 'eval_metric': 'logloss',
-              'max_depth': 10, 'colsample_bytree': 0.8, 'eta': 0.2, 'min_child_weight': 0.3, 'subsample': 0.8}
-    cv_results = xgb.cv(dtrain=x_dmatrix,
-                        params=params,
-                        nfold=5,
-                        num_boost_round=1000,
-                        metrics="logloss",
-                        as_pandas=True,
-                        seed=42,
-                        early_stopping_rounds=50)
-    return cv_results
+def xgboost_grid(x, y, scaling):
+    if False:
+        x_temp = scale(x)
+        x_dmatrix = xgb.DMatrix(x_temp, label=y)
+        params = {'objective': 'binary:logistic',
+                  'silent': 1,
+                  'eval_metric': 'logloss',
+                  'max_depth': 10,
+                  'colsample_bytree': 0.8,
+                  'eta': 0.1,
+                  'min_child_weight': 0.3,
+                  'subsample': 1}
+        cv_results = xgb.cv(dtrain=x_dmatrix,
+                            params=params,
+                            nfold=5,
+                            num_boost_round=1000,
+                            metrics="logloss",
+                            as_pandas=True,
+                            seed=42,
+                            early_stopping_rounds=250)
+        print(cv_results)
+    params_grid = {}
+    alg = xgb.XGBClassifier(objective='binary:logistic',
+                            silent=1,
+                            max_depth=10,
+                            colsample_bytree=0.8,
+                            learning_rate=0.1,
+                            min_child_weight=0.3,
+                            subsample=1,
+                            n_estimators=51)
+    #n_estimators = 99
+    model = grid_fit(alg, 'xgb', params_grid, x, y, scaling)
+    return model
 
 
-def xgboost_full_mod(x, y, x_test, y_test):
-    xgb1 = xgb.XGBClassifier(
-                learning_rate=0.1,
-                n_estimators=1000,
-                max_depth=5,
-                min_child_weight=1,
-                gamma=0,
-                subsample=0.8,
-                colsample_bytree=0.8,
-                objective='binary:logistic',
-                scale_pos_weight=1,
-                seed=42)
-    alg = model_fit_xgb(xgb1, x, y, x_test, y_test)
+def xgboost_full_mod(x, y):
+    alg = xgb.XGBClassifier(objective='binary:logistic',
+                            silent=1,
+                            max_depth=3,
+                            colsample_bytree=0.8,
+                            learning_rate=0.5,
+                            min_child_weight=0.3,
+                            subsample=0.3,
+                            n_estimators=99,
+                            reg_lambda=200,
+                            reg_alpha=100)
+    #n_estimators = 99
+    alg.fit(x, y, eval_metric='logloss')
+    xgb.plot_importance(alg)
+    plt.show()
     return alg
 
 
@@ -198,12 +217,19 @@ def xgboost_full(x, y, x_test, y_test):
     x_dmatrix = xgb.DMatrix(x, label=y)
     x_test = scale(x_test)
     test_dmatrix = xgb.DMatrix(x_test, label=y_test)
-    params = {"objective": "binary:logistic", 'silent': 1, "max_depth": 3}
+    params = {"objective": "binary:logistic",
+              'silent': 1,
+              "max_depth": 10,
+              "colsample_bytree": 0.8,
+              "learning_rate": 0.1,
+              "min_child_weight": 0.3,
+              "subsample": 1,
+              "reg_alpha": 50,
+              "reg_lambda": 50}
     xg_boost = xgb.train(dtrain=x_dmatrix,
                          params=params,
-                         num_boost_round=100,
-                         verbose_eval=False,
-                         early_stopping_rounds=50)
+                         num_boost_round=99,
+                         verbose_eval=False)
     xgb.plot_importance(xg_boost)
     plt.show()
     preds = xg_boost.predict(test_dmatrix)
@@ -212,42 +238,22 @@ def xgboost_full(x, y, x_test, y_test):
 
 
 def lgbm_grid(x, y, scaling):
-    #lgb.Dataset(x, y, max_bin=512)
-    params = {
-        'boosting_type': 'gbdt',
-        'max_depth': 5,
-        'objective': 'binary',
-        'num_leaves': 10,
-        'learning_rate': 0.05,
-        'subsample_for_bin': 1000,
-        'subsample': 1,
-        'subsample_freq': 1,
-        'colsample_bytree': 0.8,
-        'reg_alpha': 5,
-        'reg_lambda': 10,
-        'min_split_gain': 0.5,
-        'min_child_weight': 1,
-        'min_child_samples': 5,
-        'scale_pos_weight': 1,
-        'num_class': 1,
-        'metric': ['logloss'],
-
-    }
     grid_params = {}
     alg_name = 'lgbm'
     alg = lgb.LGBMClassifier(boosting_type='gbdt',
                              objective='binary',
                              silent=True,
-                             max_depth=params['max_depth'],
-                             num_leaves=params['num_leaves'],
-                             subsample_for_bin=params['subsample_for_bin'],
-                             subsample=params['subsample'],
-                             subsample_freq=params['subsample_freq'],
-                             min_split_gain=params['min_split_gain'],
-                             min_child_weight=params['min_child_weight'],
-                             min_child_samples=params['min_child_samples'],
-                             scale_pos_weight=params['scale_pos_weight'],
-                             max_bin=params['max_bin'])
+                             n_estimators=300,
+                             max_depth=-1,
+                             num_leaves=31,
+                             learning_rate=0.1,
+                             subsample_for_bin=50000,
+                             subsample=1,
+                             subsample_freq=1,
+                             min_split_gain=0.,
+                             min_child_samples=20,
+                             reg_alpha=0.,
+                             reg_lambda=0.)
     model = grid_fit(alg, alg_name, grid_params, x, y, scaling)
     return model
 
@@ -324,3 +330,14 @@ def log_transformer():
     return FunctionTransformer(log_df)
 
 
+def write_final_prediction(model, x, index, name):
+    y_pred = model.predict_proba(x)[:, 1]
+    y_pred = pd.Series(y_pred)
+    final = pd.concat([index, y_pred], axis=1, ignore_index=True)
+    final.columns = ['ID_CORRELATIVO', 'ATTRITION']
+    final.to_csv('./output/{0}.csv'.format(name), index=False)
+    return
+
+
+def get_logloss(y, y_pred):
+    return log_loss(y, y_pred)
